@@ -79,11 +79,89 @@ Then if magic number is OK, use readVirus in order to read the viruses one-by-on
 and use printVirus in order to print the virus to the standard output.
 Test your implementation by comparing your output with the file. Tip for Linux: use diff to
 compare files line by line. (type man diff for more info)
-Reading into structs
-The structure of the virus description on file allows reading an entire description into 
+Reading into structs The structure of the virus description on file allows 
+reading an entire description into 
 a virus struct in 2 fread calls. You should read the first 18 bytes directly into the virus 
 struct. You may need to manipulate the size field. Then, according to the size, 
 allocate memory for sig and read the signature directly into it.
+
+
+Part 1b - Linked List Implementation
+Each node in the linked list is represented by the following structure:
+typedef struct link link;
+
+
+struct link {
+link *nextVirus;
+virus *vir;
+};
+
+You are expected to implement the following functions:
+void list_print(link *virus_list, FILE*);
+Print the data of every link in list to the given stream. 
+Each item followed by a newline character.
+link* list_append(link* virus_list, virus* data);
+Add a new link with the given data at the beginning of the list and return a pointer to
+ the list (i.e., the first link in the list). If the list is null - create a new entry and 
+ return a pointer to the entry.
+void list_free(link *virus_list);
+/* Free the memory allocated by the list.
+
+To test your list implementation you are requested to write a program with the following prompt in an infinite loop. You should use the same scheme for printing and selecting menu items as at the end of lab 1 (physical presence lab 1).
+0) Set signatures file name
+1) Load signatures
+2) Print signatures
+3) Detect viruses
+4) Fix file
+5) Quit
+
+Option 0, Set signatures file name, calls SetSigFileName( ) 
+to change the current signatures file name.
+Option 1, Load signatures, uses the currebt signatures file name.
+
+After the signatures are loaded, Option 2, Print signatures can be used to
+ print them to the screen. If no file is loaded, nothing is printed. You should read 
+ the user's input using fgets and sscanf. Quit should exit the program. 
+Detect viruses and Fix file should initially be stub functions that currently
+just print "Not implemented\n" (note that these printouts are dropped in the final 
+version of your program).
+Test yourself by:
+Read the viruse signature structures into buffers in memory.
+Creates a linked list that contains all of the viruses where each node represents 
+a single virus.
+Prints the content. Here's an example output. File: example output
+
+
+Part 1c - Detecting the virus
+
+Now, that you have loaded the virus descriptions into memory, 
+extend your virusDetector program as follows:
+Implement Detect viruses: operates after the user runs it by entering 
+the appropriate number on the menu,
+Open the file indicated by the command-line argument FILE, and fread() 
+the entire contents of the suspected file into a buffer of constant size 10K bytes in memory.
+Scan the content of the buffer to detect viruses.
+
+For simplicity, we will assume that the file is smaller than the buffer, 
+or that there are no parts of the virus that need to be scanned beyond that point, 
+i.e., we will only fill the buffer once. The scan will be done by 
+a function with the following signature:
+
+1. void detect_virus(char *buffer, unsigned int size, link *virus_list)
+
+The detect_virus function compares the content of the buffer byte-by-byte with the virus 
+signatures stored in the virus_list linked list. size should be the minimum between 
+the size of the buffer and the size of the suspected file in bytes. If a virus is detected,
+for each detected virus the detect_virus function prints the following details to 
+the standard output:
+The starting byte location in the suspected file
+The virus name
+The size of the virus signature
+
+If no viruses were detected, the function does not print anything. Use the 
+memcmp(3) function to compare the bytes of the respective virus signature with 
+the bytes of the suspected file.
+You can test your program by applying it to the given file.
 */
 
 #include <stdio.h>
@@ -104,9 +182,10 @@ typedef struct link {
 
 // Function to set the signature file name
 void SetSigFileName(char *fileName) {
-    printf("Enter signature file name: ");
+    fprintf(stderr, "Please enter a new signature file name:");
+    //wait for the user to input a signature file name and store it in the provided variable.
     fgets(fileName, 256, stdin);
-    fileName[strcspn(fileName, "\n")] = 0;  // Remove the newline character
+    fileName[strcspn(fileName, "\n")] = 0;
 }
 
 // Function to read a virus from a file

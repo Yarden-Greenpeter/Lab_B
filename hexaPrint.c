@@ -33,41 +33,24 @@ void PrintHex(const unsigned char *buffer, size_t length) {
     printf("\n");
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s FILE\n", argv[0]);
-        return 1;
-    }
+int FileSize (FILE *file){
+    fseek(file, 0, SEEK_END); 
+    long file_size = ftell(file);
+    rewind(file);
+    return file_size;
+}
 
-    const char *filename = argv[1];
-    FILE *file = fopen(filename, "rb");
+int main(int argc, char *argv[]) {
+    FILE *file = fopen(argv[1], "rb"); // Open in binary mode
     if (file == NULL) {
         perror("Error opening file");
         return 1;
     }
-
-    fseek(file, 0, SEEK_END);
-    long fileSize = ftell(file);
-    rewind(file);
-
-    unsigned char *buffer = (unsigned char *)malloc(fileSize * sizeof(unsigned char));
-    if (buffer == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(file);
-        return 1;
-    }
-
-    size_t bytesRead = fread(buffer, sizeof(unsigned char), fileSize, file);
-    if (bytesRead != fileSize) {
-        fprintf(stderr, "Error reading file\n");
-        free(buffer);
-        fclose(file);
-        return 1;
-    }
-
-    PrintHex(buffer, bytesRead);
-
+    int size = FileSize(file);
+    unsigned char *buffer = malloc(size);
+    fread(buffer, 1, size, file); // Read the file into the buffer
+    PrintHex(buffer, size);
     free(buffer);
     fclose(file);
-    return 0;
+    return 1;
 }
