@@ -62,13 +62,13 @@ unsigned char* sig;
 First, you are required to implement the following two auxiliary functions and use them for 
 implementing the main parts:
 
-void SetSigFileName( ): This function queries the user for a new signature file name, 
+-void SetSigFileName( ): This function queries the user for a new signature file name, 
 and sets the signature file name accordingly. The default file name 
 (before this function is called) should be "signatures-L" (without the quotes).
-virus* readVirus(FILE*): this function receives a file pointer and returns a virus* 
+-virus* readVirus(FILE*): this function receives a file pointer and returns a virus* 
 that represents the next virus in the file. To read from a file, use fread(). 
 See man fread(3) for assistance.
-void printVirus(virus* virus): this function receives a pointer to a virus structure. 
+-void printVirus(virus* virus): this function receives a pointer to a virus structure. 
 The function prints the virus data to stdout. It prints the virus name (in ASCII), 
 the virus signature length (in decimal), and the virus signature (in hexadecimal representation).
 After you implemented the auxiliary functions, implement the following two steps:
@@ -168,6 +168,8 @@ You can test your program by applying it to the given file.
 #include <stdlib.h>
 #include <string.h>
 
+int littlEndian = 0;
+
 // Define the virus struct
 typedef struct virus {
     unsigned short SigSize;
@@ -191,23 +193,26 @@ void SetSigFileName(char *fileName) {
 // Function to read a virus from a file
 virus* readVirus(FILE *file) {
     virus *v = malloc(sizeof(virus));
-    if (fread(v, 1, 18, file) != 18) {  // Read the first 18 bytes
-        free(v);
-        return NULL;
-    }
-
-    // Adjust the signature length if needed
-    if (v->SigSize > 0) {
-        v->sig = malloc(v->SigSize);
-        if (fread(v->sig, 1, v->SigSize, file) != v->SigSize) {
-            free(v->sig);
-            free(v);
-            return NULL;
-        }
-    } else {
-        v->sig = NULL;
-    }
+    fread(v, 1, 18, file);
+    if(littlEndian) v->SigSize = ntohs(v->SigSize);
+    v->sig = malloc(v->SigSize);
+    fread(v->sig, 1, v->SigSize, file);
     return v;
+}
+
+
+//Function to determain if a file is little or big endian return 1 if so and 0 if not
+int checkEndianness(FILE *file){
+    char magic[4];  // Array of exactly 4 characters
+    fread(magic, 1, 4, file);
+    if (strcmp(magic, "VIRL") == 0) {
+        littlEndian = 1;
+        return 1;
+    } else if (strcmp(magic, "VIRB") == 0) {
+        littlEndian = 0;
+        return 1;
+    }
+    return 0;
 }
 
 // Function to print a virus
@@ -298,18 +303,11 @@ int main(int argc, char *argv[]) {
                     perror("Error opening file");
                     break;
                 }
-
                 // Read and check the magic number
-                char magic[5] = {0};
-                if (fread(magic, 1, 4, file) != 4) {
-                    fprintf(stderr, "Error reading magic number\n");
-                    fclose(file);
-                    break;
-                }
-                if (strcmp(magic, "VIRL") != 0 && strcmp(magic, "VIRB") != 0) {
-                    fprintf(stderr, "Invalid magic number\n");
-                    fclose(file);
-                    break;
+
+                //male sure little endian is freed
+                if(!checkEndianness){
+                    //close file and break
                 }
 
                 // Free the existing list if any
