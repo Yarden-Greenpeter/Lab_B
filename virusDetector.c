@@ -110,6 +110,15 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
         current = current->nextVirus;
     }
 }
+//Task 2
+
+void neutralize_virus(char *fileName, int signatureOffset) {
+    FILE *file = fopen(fileName, "rb+");
+    fseek(file, signatureOffset, SEEK_SET);
+    fwrite(&((unsigned char){0xC3}) ,sizeof(unsigned char) ,1 ,file);
+    fclose(file);
+}
+
 
 int main(int argc, char *argv[]) {
     char sigFileName[256] = "signatures-L";
@@ -167,15 +176,25 @@ int main(int argc, char *argv[]) {
                 }
                 
                 FILE *file = fopen(sigFileName, "rb");
-                int TenThousend = (10 << 10) - ((3*5)<<4); //we have to have some fun in this lab
-                char buffer[TenThousend];
-                unsigned int size = fread(buffer, 1, TenThousend, file);
+                char buffer[10000] = {0};
+                unsigned int size = fread(buffer, 1, 10000, file);
                 detect_virus(buffer, size, virus_list);
                 fclose(file);
                 break;
             }
             case 4:
-                printf("Not implemented\n");
+                if (strlen(sigFileName) == 0) {
+                printf("Please provide a suspected file name as a command-line argument.\n");
+                break;
+                }
+                printf("Enter the signature offset to neutralize the virus: ");
+                int signatureOffset;
+                scanf("%d", &signatureOffset);
+                FILE *file = fopen(sigFileName, "rb");
+                char buffer[10000] = {0};
+                unsigned int size = fread(buffer, 1, 10000, file);
+                neutralize_virus(sigFileName, signatureOffset); // Call the function to fix the infected file
+                fclose(file);
                 break;
             case 5:
                 list_free(virus_list);
