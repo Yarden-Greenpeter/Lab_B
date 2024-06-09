@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -m32 -g
-TARGET = virusDetector
-OBJS = virusDetector.o
+TARGET = AntiVirus
+OBJS = AntiVirus.o
 
 .PHONY: all clean test
 
