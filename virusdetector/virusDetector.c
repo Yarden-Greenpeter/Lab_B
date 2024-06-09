@@ -1,15 +1,12 @@
 
 /*
-1) check task 1a 1b 1c to make sure the functions read the file as needed
-2) build a menu as specified in lab 1:(
-3)implement part 2
+1) build a menu as specified in lab 1:(
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int littlEndian = 0;
 
 typedef struct virus {
     unsigned short SigSize;
@@ -22,18 +19,23 @@ typedef struct link {
     virus *vir;
 } link;
 
-// Function to set the signature file name
-void SetSigFileName(char *fileName) {
+int littlEndian = 0;
+char sigFileName[256] = "signatures-L";
+link *virus_list = NULL;
+
+void SetSigFileName() {
     fprintf(stderr, "Please enter a new signature file name:");
-    //wait for the user to input a signature file name and store it in the provided variable.
-    fgets(fileName, 256, stdin);
-    fileName[strcspn(fileName, "\n")] = 0;
+    fgets(sigFileName, 256, stdin);
+    sigFileName[strcspn(sigFileName, "\n")] = 0;
 }
 
-// Function to read a virus from a file
 virus* readVirus(FILE *file) {
     char buffer[2];
     virus *v = malloc(sizeof(virus));
+    if (v == NULL) {
+        perror("Failed to allocate memory for virus");
+        return NULL;
+    }
     if (fread(buffer, 1, 2, file) != 2){
         free(v);
         return NULL;
@@ -50,18 +52,20 @@ virus* readVirus(FILE *file) {
     }
     
     v->sig = malloc(v->SigSize);
-
+    if (v->sig == NULL) {
+        perror("Failed to allocate memory for virus signature");
+        free(v);
+        return NULL;
+    }
     if(fread(v->sig, sizeof(unsigned char), v->SigSize, file) != v->SigSize){
         perror("Failed to read the virus signature");
         free(v->sig);
         free(v);
         return NULL; // Read error
     }
-                printVirus(v, stderr);
     return v;
 }
 
-//Function to determain if a file is little or big endian return 1 if so and 0 if not
 int checkEndianness(FILE *file){
     char magic[4];  // Array of exactly 4 characters
     fread(magic, 1, 4, file);
@@ -75,8 +79,7 @@ int checkEndianness(FILE *file){
     return 0;
 }
 
-// Function to print a virus
-void printVirus(virus *v,  FILE *stream) {
+void print_virus_to_stream(virus *v,  FILE *stream) {
     fprintf(stream, "Virus name: %s\n", v->virusName);
     fprintf(stream, "Virus size: %d\n", v->SigSize);
     fprintf(stream, "signature: ");
@@ -89,16 +92,18 @@ void printVirus(virus *v,  FILE *stream) {
     printf("\n\n");
 }
 
-// Function to print the linked list
+void printVirus(virus *v) {
+    print_virus_to_stream(v, stderr);
+}
+
 void list_print(link *virus_list, FILE *stream) {
     link *current = virus_list;
     while (current != NULL) {
-        printVirus(current->vir, stream);
+        print_virus_to_stream(current->vir, stream);
         current = current->nextVirus;
     }
 }
 
-// Function to append a new virus to the list
 link* list_append(link *virus_list, virus *data) {
     link *newLink = malloc(sizeof(link));
     newLink->vir = data;
@@ -106,7 +111,6 @@ link* list_append(link *virus_list, virus *data) {
     return newLink;
 }
 
-// Function to free the linked list
 void list_free(link *virus_list) {
     while (virus_list != NULL) {
         link *next = virus_list->nextVirus;
@@ -117,7 +121,6 @@ void list_free(link *virus_list) {
     }
 }
 
-// Function to detect viruses in a buffer
 void detect_virus(char *buffer, unsigned int size, link *virus_list) {
     link *current = virus_list;
     //for each virus search for his signature in the file
@@ -134,6 +137,29 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
         current = current->nextVirus;
     }
 }
+
+int* detect_virus_offsets(char *buffer, unsigned int size, link *virus_list){
+    link* current = virus_list;
+    int numViruses = 0;
+    int* offsets = malloc((size/16) * sizeof(int)); // size of buffer divided by virus_name_size to get the max num of possible viruses
+    if (offsets == NULL) {
+        perror("Error allocating memory for offsets");
+        exit(EXIT_FAILURE);
+    }
+    while(current != NULL){
+        virus* virus = current->vir;
+        for (unsigned int i = 0; i <= size - virus->SigSize; i++) {
+            if (memcmp(buffer + i, virus->sig, virus->SigSize) == 0) {
+                offsets[numViruses] = i;
+                numViruses++;
+            }
+        }
+        current = current->nextVirus;
+    }
+    // Resize the array to fit the actual number of viruses detected
+    offsets = realloc(offsets, numViruses * sizeof(int));
+    return offsets;
+}
 //Task 2
 
 void neutralize_virus(char *fileName, int signatureOffset) {
@@ -143,90 +169,114 @@ void neutralize_virus(char *fileName, int signatureOffset) {
     fclose(file);
 }
 
+//extra auxilary functions
+void Set(){
+    SetSigFileName();
+}
+
+void Load(){
+    FILE *file = fopen(sigFileName, "rb");
+    if (!file) {
+        perror("Error opening file");
+        return;
+    }
+    //check for the four magic numbers at the beginning of the file
+    fprintf(stderr, "checking Endianness");
+    if(!checkEndianness(file)){
+    //close file and break
+    perror("Error reading magic number\n");
+    fclose(file);
+    return;
+    }
+    fprintf(stderr, "checked Endianness");
+    //allocte the list with the viruses descriptions
+    list_free(virus_list);
+    virus_list = NULL;
+    virus *v;
+    while ((v = readVirus(file)) != NULL) {
+        virus_list = list_append(virus_list, v);
+    }
+    //close the file
+    fclose(file);
+}
+
+void Print(){
+    list_print(virus_list, stderr);
+}
+
+void Detect(){
+    if (strlen(sigFileName) == 0) {
+        printf("Please provide a suspected file name as a command-line argument.\n");
+        return;
+    }
+
+    char buffer[10000] = {0};
+    FILE *file = fopen(sigFileName, "rb");
+    unsigned int size = fread(buffer, 1, 10000, file);
+    fclose(file);
+    detect_virus(buffer, size, virus_list);
+}
+//netrulize all viruses
+void Netrulize(){
+    if (strlen(sigFileName) == 0) {
+        printf("Please provide a suspected file name as a command-line argument.\n");
+        return;
+    }
+    //
+    char buffer[10000] = {0};
+    FILE *file = fopen(sigFileName, "rb");
+    unsigned int size = fread(buffer, 1, 10000, file);
+    fclose(file);
+    int* offsets = detect_virus_offsets(buffer, (unsigned int)size, virus_list);
+    for(int i = 0 ; i < sizeof(offsets) ; i++){
+        neutralize_virus(sigFileName, offsets[i]);
+    }
+    free(offsets);
+}
+
+void Quit(){
+    printf("Exiting program...\n");
+    list_free(virus_list);
+    exit(EXIT_SUCCESS);
+}
+
+typedef void (*FunctionPtr)();
+
+struct fun_desc{char *name; FunctionPtr function;};
+
+void print_menu(int size, struct fun_desc menu[]){
+    printf("\nSelect operation from the following menu by its number:\n");
+    for(int i = 0 ; i < size ; i++)
+        printf("(%d) %s\n", i, menu[i].name); 
+}
 
 int main(int argc, char *argv[]) {
-    char sigFileName[256] = "signatures-L";
-    link *virus_list = NULL;
 
-    while (1) {
-        printf("0) Set signatures file name\n");
-        printf("1) Load signatures\n");
-        printf("2) Print signatures\n");
-        printf("3) Detect viruses\n");
-        printf("4) Fix file\n");
-        printf("5) Quit\n");
+    struct fun_desc menu[] = {
+        {"Set signatures file name", Set}, // Set signatures file name, calls SetSigFileName(). 
+        {"Load signatures", Load}, // Load signatures, uses the current signatures file name.
+        {"Print signatures", Print}, // Print the loaded signatures to the screen. If no file is loaded, nothing is printed.
+        {"Detect viruses", Detect}, // Scan the buffer and print virus details if detected
+        {"Fix file", Netrulize}, // Fix the virus
+        {"Quit", Quit}, // Exit the program
+        {NULL, NULL}
+    };
+    int menu_size = (sizeof(menu) / sizeof(menu[0])) - 1;
+    char input[256];
 
-        int option;
-        char input[256];
+    while(1){
+        print_menu(menu_size, menu);
         fgets(input, sizeof(input), stdin);
-        sscanf(input, "%d", &option);
-
-        switch (option) {
-            case 0:
-                SetSigFileName(sigFileName);
-                break;
-            case 1: {
-                //try to open the file
-                FILE *file = fopen(sigFileName, "rb");
-                fprintf(stderr, sigFileName);
-                if (!file) {
-                    perror("Error opening file");
-                    break;
-                }
-                //check for the four magic numbers at the beginning of the file
-                if(!checkEndianness(file)){
-                    //close file and break
-                    perror("Error reading magic number\n");
-                    fclose(file);
-                    break;
-                }
-                //allocte the list with the viruses descriptions
-                list_free(virus_list);
-                virus_list = NULL;
-                virus *v;
-                while ((v = readVirus(file)) != NULL) {
-                    virus_list = list_append(virus_list, v);
-                }
-                //close the file
-                fclose(file);
-                break;
-            }
-            case 2:
-                list_print(virus_list, stdout);
-                break;
-            case 3: {
-                if (strlen(sigFileName) == 0) {
-                    printf("Please provide a suspected file name as a command-line argument.\n");
-                    break;
-                }
-                
-                FILE *file = fopen(sigFileName, "rb");
-                char buffer[10000] = {0};
-                unsigned int size = fread(buffer, 1, 10000, file);
-                detect_virus(buffer, size, virus_list);
-                fclose(file);
-                break;
-            }
-            case 4:
-                if (strlen(sigFileName) == 0) {
-                printf("Please provide a suspected file name as a command-line argument.\n");
-                break;
-                }
-                printf("Enter the signature offset to neutralize the virus: ");
-                int signatureOffset;
-                scanf("%d", &signatureOffset);
-                FILE *file = fopen(sigFileName, "rb");
-                char buffer[10000] = {0};
-                unsigned int size = fread(buffer, 1, 10000, file);
-                neutralize_virus(sigFileName, signatureOffset); // Call the function to fix the infected file
-                fclose(file);
-                break;
-            case 5:
-                list_free(virus_list);
-                return 0;
-            default:
-                printf("Invalid option\n");
-                break;
+        int option = atoi(input);
+        if((option < 0) || (option >= menu_size)){
+            printf("Invalid input, try again...\n");
+            break;
         }
+        else
+            ((void (*)())menu[option].function)();
     }
+
+    return 0;
+
+
 }
