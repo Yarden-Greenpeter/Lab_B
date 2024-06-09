@@ -1,11 +1,17 @@
-all: virusDetector
+CC = gcc
+CFLAGS = -Wall -m32 -g
+TARGET = virusDetector
+OBJS = virusDetector.o
 
-virusDetector: virusDetector.o
-	gcc -m32 -g -Wall -o virusDetector virusDetector.o
+.PHONY: all clean test
 
-virusDetector.o: virusDetector.c
-	gcc -g -Wall -m32 -c -o virusDetector.o virusDetector.c
+all: $(TARGET)
 
-.PHONY: clean
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
-	rm -f *.o virusDetector
+	rm -f $(TARGET) $(OBJS)

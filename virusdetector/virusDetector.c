@@ -32,11 +32,32 @@ void SetSigFileName(char *fileName) {
 
 // Function to read a virus from a file
 virus* readVirus(FILE *file) {
+    char buffer[2];
     virus *v = malloc(sizeof(virus));
-    fread(v, 1, 18, file);
-    if(littlEndian) v->SigSize = ntohs(v->SigSize);
+    if (fread(buffer, 1, 2, file) != 2){
+        free(v);
+        return NULL;
+    }
+    if(littlEndian){
+        v->SigSize = (buffer[1] << 8) | buffer[0];
+    }
+    else{
+        v->SigSize = (buffer[0] << 8) | buffer[1];
+    }
+    if(fread(v->virusName, sizeof(char), 16, file) != 16){
+        free(v);
+        return NULL; // Read error
+    }
+    
     v->sig = malloc(v->SigSize);
-    fread(v->sig, 1, v->SigSize, file);
+
+    if(fread(v->sig, sizeof(unsigned char), v->SigSize, file) != v->SigSize){
+        perror("Failed to read the virus signature");
+        free(v->sig);
+        free(v);
+        return NULL; // Read error
+    }
+                printVirus(v, stderr);
     return v;
 }
 
@@ -56,13 +77,16 @@ int checkEndianness(FILE *file){
 
 // Function to print a virus
 void printVirus(virus *v,  FILE *stream) {
-    printf(stream, "Virus name: %s\n", v->virusName);
-    printf(stream, "Virus signature length: %u\n", v->SigSize);
-    printf(stream, "Virus signature: ");
+    fprintf(stream, "Virus name: %s\n", v->virusName);
+    fprintf(stream, "Virus size: %d\n", v->SigSize);
+    fprintf(stream, "signature: ");
     for (int i = 0; i < v->SigSize; i++) {
-        printf("%02X ", v->sig[i]);
+        fprintf(stream, "%02X", v->sig[i]);
+        if(i < v->SigSize-1){
+            fprintf(stream, " ");
+        }
     }
-    printf("\n");
+    printf("\n\n");
 }
 
 // Function to print the linked list
@@ -144,6 +168,7 @@ int main(int argc, char *argv[]) {
             case 1: {
                 //try to open the file
                 FILE *file = fopen(sigFileName, "rb");
+                fprintf(stderr, sigFileName);
                 if (!file) {
                     perror("Error opening file");
                     break;
