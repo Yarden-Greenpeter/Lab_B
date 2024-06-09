@@ -181,14 +181,12 @@ void Load(){
         return;
     }
     //check for the four magic numbers at the beginning of the file
-    fprintf(stderr, "checking Endianness");
     if(!checkEndianness(file)){
     //close file and break
     perror("Error reading magic number\n");
     fclose(file);
     return;
     }
-    fprintf(stderr, "checked Endianness");
     //allocte the list with the viruses descriptions
     list_free(virus_list);
     virus_list = NULL;
