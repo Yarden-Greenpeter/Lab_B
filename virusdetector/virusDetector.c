@@ -1,12 +1,6 @@
-
-/*
-1) build a menu as specified in lab 1:(
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 
 typedef struct virus {
     unsigned short SigSize;
@@ -18,6 +12,13 @@ typedef struct link {
     struct link *nextVirus;
     virus *vir;
 } link;
+
+typedef void (*FunctionPtr)();
+
+struct func_desc{
+    char *name; 
+    FunctionPtr function;
+    } func_desc;
 
 int littlEndian = 0;
 char sigFileName[256] = "signatures-L";
@@ -160,7 +161,6 @@ int* detect_virus_offsets(char *buffer, unsigned int size, link *virus_list){
     offsets = realloc(offsets, numViruses * sizeof(int));
     return offsets;
 }
-//Task 2
 
 void neutralize_virus(char *fileName, int signatureOffset) {
     FILE *file = fopen(fileName, "rb+");
@@ -169,7 +169,7 @@ void neutralize_virus(char *fileName, int signatureOffset) {
     fclose(file);
 }
 
-//extra auxilary functions
+//menu functions
 void Set(){
     SetSigFileName();
 }
@@ -203,31 +203,37 @@ void Print(){
 }
 
 void Detect(){
-    if (strlen(sigFileName) == 0) {
+    char fileName[256];
+    fprintf(stderr, "Please enter a file name to seek viruses:");
+    fgets(fileName, 256, stdin);
+    if (strlen(fileName) == 0) {
         printf("Please provide a suspected file name as a command-line argument.\n");
         return;
     }
 
     char buffer[10000] = {0};
-    FILE *file = fopen(sigFileName, "rb");
+    FILE *file = fopen(fileName, "rb");
     unsigned int size = fread(buffer, 1, 10000, file);
     fclose(file);
     detect_virus(buffer, size, virus_list);
 }
 //netrulize all viruses
 void Netrulize(){
-    if (strlen(sigFileName) == 0) {
+    char fileName[256];
+    fprintf(stderr, "Please enter a file name to netrulize:");
+    fgets(fileName, 256, stdin);
+    if (strlen(fileName) == 0) {
         printf("Please provide a suspected file name as a command-line argument.\n");
         return;
     }
     //
     char buffer[10000] = {0};
-    FILE *file = fopen(sigFileName, "rb");
+    FILE *file = fopen(fileName, "rb");
     unsigned int size = fread(buffer, 1, 10000, file);
     fclose(file);
     int* offsets = detect_virus_offsets(buffer, (unsigned int)size, virus_list);
     for(int i = 0 ; i < sizeof(offsets) ; i++){
-        neutralize_virus(sigFileName, offsets[i]);
+        neutralize_virus(fileName, offsets[i]);
     }
     free(offsets);
 }
@@ -238,11 +244,7 @@ void Quit(){
     exit(EXIT_SUCCESS);
 }
 
-typedef void (*FunctionPtr)();
-
-struct fun_desc{char *name; FunctionPtr function;};
-
-void print_menu(int size, struct fun_desc menu[]){
+void print_menu(int size, struct func_desc menu[]){
     printf("\nSelect operation from the following menu by its number:\n");
     for(int i = 0 ; i < size ; i++)
         printf("(%d) %s\n", i, menu[i].name); 
@@ -250,7 +252,7 @@ void print_menu(int size, struct fun_desc menu[]){
 
 int main(int argc, char *argv[]) {
 
-    struct fun_desc menu[] = {
+    struct func_desc menu[] = {
         {"Set signatures file name", Set}, // Set signatures file name, calls SetSigFileName(). 
         {"Load signatures", Load}, // Load signatures, uses the current signatures file name.
         {"Print signatures", Print}, // Print the loaded signatures to the screen. If no file is loaded, nothing is printed.
