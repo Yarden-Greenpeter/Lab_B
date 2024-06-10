@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+// Structs:
 typedef struct virus {
     unsigned short SigSize;
     char virusName[16];
@@ -20,16 +20,22 @@ struct func_desc{
     FunctionPtr function;
     } func_desc;
 
+//Global Variables
 int littlEndian = 0;
 char sigFileName[256] = "signatures-L";
 link *virus_list = NULL;
 
+//Task functions and auxilury function:
+
+//sets the variable sigFileName to the user input.
 void SetSigFileName() {
     fprintf(stderr, "Please enter a new signature file name:");
     fgets(sigFileName, 256, stdin);
     sigFileName[strcspn(sigFileName, "\n")] = 0;
 }
 
+//reads through a file a single virus, constructs it and returns it.
+//note: used 3 freads since trying with 2 lead to problems...
 virus* readVirus(FILE *file) {
     char buffer[2];
     virus *v = malloc(sizeof(virus));
@@ -37,38 +43,42 @@ virus* readVirus(FILE *file) {
         perror("Failed to allocate memory for virus");
         return NULL;
     }
-    if (fread(buffer, 1, 2, file) != 2){
+    if (fread(buffer, 1, 2, file) != 2){ //could happen if the file is finished
         free(v);
         return NULL;
     }
+    //set the size accourding to VIRL | VIRB.
     if(littlEndian){
         v->SigSize = (buffer[1] << 8) | buffer[0];
     }
     else{
         v->SigSize = (buffer[0] << 8) | buffer[1];
     }
-    if(fread(v->virusName, sizeof(char), 16, file) != 16){
+    //set the name of the virus.
+    if(fread(v->virusName, sizeof(char), 16, file) != 16){ //if the file is well parsed this if condition won't be met
         free(v);
-        return NULL; // Read error
+        return NULL;
     }
-    
+    //set the size of the signature and set the signature to the virus.
     v->sig = malloc(v->SigSize);
     if (v->sig == NULL) {
         perror("Failed to allocate memory for virus signature");
         free(v);
         return NULL;
     }
-    if(fread(v->sig, sizeof(unsigned char), v->SigSize, file) != v->SigSize){
+    if(fread(v->sig, sizeof(unsigned char), v->SigSize, file) != v->SigSize){ //if the file is well parsed this if condition won't be met
         perror("Failed to read the virus signature");
         free(v->sig);
         free(v);
-        return NULL; // Read error
+        return NULL;
     }
     return v;
 }
 
+//checks if the 4 first chars of the file are VIRL | VIRB and sets the global variable littlEndian accordingly.
+//if the file pointer contained VIRL | VIRB at the first 4 chars returns 1 (true - operation succeded) else 0(false - operation aburted).
 int checkEndianness(FILE *file){
-    char magic[4];  // Array of exactly 4 characters
+    char magic[4];
     fread(magic, 1, 4, file);
     if (strcmp(magic, "VIRL") == 0) {
         littlEndian = 1;
@@ -80,6 +90,7 @@ int checkEndianness(FILE *file){
     return 0;
 }
 
+//auxillary function to pring a virus struct, used to help printVirus and list_print.
 void print_virus_to_stream(virus *v,  FILE *stream) {
     fprintf(stream, "Virus name: %s\n", v->virusName);
     fprintf(stream, "Virus size: %d\n", v->SigSize);
@@ -90,13 +101,16 @@ void print_virus_to_stream(virus *v,  FILE *stream) {
             fprintf(stream, " ");
         }
     }
-    printf("\n\n");
+    printf("\n");
 }
 
+//prints a virus v to the stderr
 void printVirus(virus *v) {
     print_virus_to_stream(v, stderr);
 }
 
+// prints a list of viruses from the start to finish to a specified stream (different order then signatures-L..)
+// doesn't alter the list given.
 void list_print(link *virus_list, FILE *stream) {
     link *current = virus_list;
     while (current != NULL) {
@@ -105,6 +119,7 @@ void list_print(link *virus_list, FILE *stream) {
     }
 }
 
+//add a virus to a list.
 link* list_append(link *virus_list, virus *data) {
     link *newLink = malloc(sizeof(link));
     newLink->vir = data;
@@ -112,6 +127,7 @@ link* list_append(link *virus_list, virus *data) {
     return newLink;
 }
 
+//frees a list memory alloctions and frees each item in the list.
 void list_free(link *virus_list) {
     while (virus_list != NULL) {
         link *next = virus_list->nextVirus;
@@ -121,10 +137,10 @@ void list_free(link *virus_list) {
         virus_list = next;
     }
 }
-
+//goes over a file and a list of viruses and searches for each virus (by signature) in the file
+//if found prints to stderr a notice alert with some information
 void detect_virus(char *buffer, unsigned int size, link *virus_list) {
     link *current = virus_list;
-    //for each virus search for his signature in the file
     while (current != NULL) {
         virus *v = current->vir;
         for (unsigned int i = 0; i <= size - v->SigSize; i++) {
@@ -139,6 +155,7 @@ void detect_virus(char *buffer, unsigned int size, link *virus_list) {
     }
 }
 
+//returns a list off viruses signatures offsets in the file, this will help the program eliminate all the viruses in a corrupt file.
 int* detect_virus_offsets(char *buffer, unsigned int size, link *virus_list){
     link* current = virus_list;
     int numViruses = 0;
@@ -162,6 +179,7 @@ int* detect_virus_offsets(char *buffer, unsigned int size, link *virus_list){
     return offsets;
 }
 
+//recieve the place in the file where a virus was found and alters the char at the point with a RET commend (0xC3)
 void neutralize_virus(char *fileName, int signatureOffset) {
     FILE *file = fopen(fileName, "rb+");
     fseek(file, signatureOffset, SEEK_SET);
@@ -169,7 +187,7 @@ void neutralize_virus(char *fileName, int signatureOffset) {
     fclose(file);
 }
 
-//menu functions
+//Menu functions:
 void Set(){
     SetSigFileName();
 }
@@ -180,9 +198,8 @@ void Load(){
         perror("Error opening file");
         return;
     }
-    //check for the four magic numbers at the beginning of the file
-    if(!checkEndianness(file)){
-    //close file and break
+    //check for the four magic numbers at the beginning of the file.
+    if(!checkEndianness(file)){ //will enter if the file isn't well parsed.
     perror("Error reading magic number\n");
     fclose(file);
     return;
@@ -204,7 +221,9 @@ void Print(){
 
 void Detect(){
     char fileName[256];
-    fprintf(stderr, "Please enter a file name to seek viruses:");
+    fprintf(stderr, "Please enter a file name to seek viruses:"); 
+    /* I altered the task since there is a differnce
+     between the sigFileName and the name of the file we want to detect | neutralize*/
     fgets(fileName, 256, stdin);
     if (strlen(fileName) == 0) {
         printf("Please provide a suspected file name as a command-line argument.\n");
@@ -213,10 +232,12 @@ void Detect(){
 
     char buffer[10000] = {0};
     FILE *file = fopen(fileName, "rb");
+
     unsigned int size = fread(buffer, 1, 10000, file);
     fclose(file);
     detect_virus(buffer, size, virus_list);
 }
+
 //netrulize all viruses
 void Netrulize(){
     char fileName[256];
