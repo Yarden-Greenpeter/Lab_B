@@ -218,43 +218,25 @@ void Load(){
 void Print(){
     list_print(virus_list, stderr);
 }
-
+//detect all viruses in sigFileName.
 void Detect(){
-    char fileName[256];
-    fprintf(stderr, "Please enter a file name to seek viruses:"); 
-    /* I altered the task since there is a differnce
-     between the sigFileName and the name of the file we want to detect | neutralize*/
-    fgets(fileName, 256, stdin);
-    if (strlen(fileName) == 0) {
-        printf("Please provide a suspected file name as a command-line argument.\n");
-        return;
-    }
-
     char buffer[10000] = {0};
-    FILE *file = fopen(fileName, "rb");
+    FILE *file = fopen(sigFileName, "rb");
 
     unsigned int size = fread(buffer, 1, 10000, file);
     fclose(file);
     detect_virus(buffer, size, virus_list);
 }
 
-//netrulize all viruses
+//netrulize all viruses in sigFileName
 void Netrulize(){
-    char fileName[256];
-    fprintf(stderr, "Please enter a file name to netrulize:");
-    fgets(fileName, 256, stdin);
-    if (strlen(fileName) == 0) {
-        printf("Please provide a suspected file name as a command-line argument.\n");
-        return;
-    }
-    //
     char buffer[10000] = {0};
-    FILE *file = fopen(fileName, "rb");
+    FILE *file = fopen(sigFileName, "rb");
     unsigned int size = fread(buffer, 1, 10000, file);
     fclose(file);
     int* offsets = detect_virus_offsets(buffer, (unsigned int)size, virus_list);
     for(int i = 0 ; i < sizeof(offsets) ; i++){
-        neutralize_virus(fileName, offsets[i]);
+        neutralize_virus(sigFileName, offsets[i]);
     }
     free(offsets);
 }
